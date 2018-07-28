@@ -1,10 +1,13 @@
 package org.mtransit.parser.ca_west_coast_express_bus;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.mtransit.parser.CleanUtils;
 import org.mtransit.parser.DefaultAgencyTools;
 import org.mtransit.parser.Utils;
 import org.mtransit.parser.gtfs.data.GCalendar;
@@ -14,9 +17,7 @@ import org.mtransit.parser.gtfs.data.GSpec;
 import org.mtransit.parser.gtfs.data.GStop;
 import org.mtransit.parser.gtfs.data.GTrip;
 import org.mtransit.parser.mt.data.MAgency;
-import org.mtransit.parser.mt.data.MDirectionType;
 import org.mtransit.parser.mt.data.MRoute;
-import org.mtransit.parser.CleanUtils;
 import org.mtransit.parser.mt.data.MTrip;
 
 // http://www.translink.ca/en/Schedules-and-Maps/Developer-Resources.aspx
@@ -24,6 +25,7 @@ import org.mtransit.parser.mt.data.MTrip;
 // http://mapexport.translink.bc.ca/current/google_transit.zip
 // http://ns.translink.ca/gtfs/notifications.zip
 // http://ns.translink.ca/gtfs/google_transit.zip
+// SERVICE REPLACED BY VANCOUVER TRANSLINK BUS 701
 public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
 	public static void main(String[] args) {
@@ -48,6 +50,11 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 	}
 
 	@Override
+	public boolean excludingAll() {
+		return this.serviceIds != null && this.serviceIds.isEmpty();
+	}
+
+	@Override
 	public boolean excludeCalendar(GCalendar gCalendar) {
 		if (this.serviceIds != null) {
 			return excludeUselessCalendar(gCalendar, this.serviceIds);
@@ -63,21 +70,18 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		return super.excludeCalendarDate(gCalendarDates);
 	}
 
+	private static final String RSN_701 = "701";
+
 	@Override
 	public boolean excludeRoute(GRoute gRoute) {
-		if (!RSN_WCE.equals(gRoute.getRouteShortName())) {
-			return true;
+		if (!RSN_701.equals(gRoute.getRouteShortName())) {
+			return true; // exclude
 		}
-		return gRoute.getRouteType() != MAgency.ROUTE_TYPE_TRAIN; // declared as train but we classify it as a bus
+		return false; // keep
 	}
-
-	private static final String TRAINBUS_THS_LC = "trainbus";
 
 	@Override
 	public boolean excludeTrip(GTrip gTrip) {
-		if (!gTrip.getTripHeadsign().toLowerCase(Locale.ENGLISH).contains(TRAINBUS_THS_LC)) {
-			return true; // TrainBus is a bus, not a train
-		}
 		if (this.serviceIds != null) {
 			return excludeUselessTrip(gTrip, this.serviceIds);
 		}
@@ -94,24 +98,9 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		return Long.parseLong(gRoute.getRouteShortName()); // use route short name as route ID
 	}
 
-	private static final String RSN_WCE = "997";
-	private static final String WCE_SHORT_NAME = "WCE";
-
-	@Override
-	public String getRouteShortName(GRoute gRoute) {
-		if (RSN_WCE.equals(gRoute.getRouteShortName())) {
-			return WCE_SHORT_NAME;
-		}
-		System.out.println("Unexpected route short name " + gRoute);
-		System.exit(-1);
-		return null;
-	}
-
-	private static final String TRAIN_BUS_LONG_NAME = "West Coast Express TrainBus";
-
 	@Override
 	public String getRouteLongName(GRoute gRoute) {
-		return TRAIN_BUS_LONG_NAME;
+		return CleanUtils.cleanLabel(gRoute.getRouteLongName().toLowerCase(Locale.ENGLISH));
 	}
 
 	private static final String AGENCY_COLOR_VIOLET = "711E8C"; // VIOLET (from PDF map)
@@ -128,21 +117,9 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		return null; // use agency color
 	}
 
-	private static final long RID_WCE = 997l;
-
 	@Override
 	public void setTripHeadsign(MRoute mRoute, MTrip mTrip, GTrip gTrip, GSpec gtfs) {
-		if (mRoute.getId() == RID_WCE) {
-			if (gTrip.getDirectionId() == 0) {
-				mTrip.setHeadsignDirection(MDirectionType.EAST);
-				return;
-			} else if (gTrip.getDirectionId() == 1) {
-				mTrip.setHeadsignDirection(MDirectionType.WEST);
-				return;
-			}
-		}
-		System.out.printf("Unexpected trip (unexpected route ID: %s): %s\n", mRoute.getId(), gTrip);
-		System.exit(-1);
+		mTrip.setHeadsignString(cleanTripHeadsign(gTrip.getTripHeadsign()), gTrip.getDirectionId());
 	}
 
 	private static final Pattern STARTS_WITH_QUOTE = Pattern.compile("(^\")", Pattern.CASE_INSENSITIVE);
@@ -151,13 +128,45 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
 	private static final Pattern WCE_LINE_TO = Pattern.compile("(west coast express)", Pattern.CASE_INSENSITIVE);
 
+	private static final Pattern STARTS_WITH_ROUTE = Pattern.compile("(^[A-Z]{0,1}[0-9]{1,3}[\\s]+{1})", Pattern.CASE_INSENSITIVE);
+
+	private static final String STATION_SHORT = "Sta"; // see @CleanUtils
+	private static final Pattern STATION = Pattern.compile("((^|\\W){1}(stn|sta|station)(\\W|$){1})", Pattern.CASE_INSENSITIVE);
+	private static final String STATION_REPLACEMENT = "$2" + STATION_SHORT + "$4";
+
 	@Override
 	public String cleanTripHeadsign(String tripHeadsign) {
 		tripHeadsign = tripHeadsign.toLowerCase(Locale.ENGLISH);
+		tripHeadsign = CleanUtils.cleanSlashes(tripHeadsign);
+		tripHeadsign = STARTS_WITH_ROUTE.matcher(tripHeadsign).replaceAll(StringUtils.EMPTY);
+		tripHeadsign = CleanUtils.CLEAN_AND.matcher(tripHeadsign).replaceAll(CleanUtils.CLEAN_AND_REPLACEMENT);
+		tripHeadsign = CleanUtils.CLEAN_AT.matcher(tripHeadsign).replaceAll(CleanUtils.CLEAN_AT_REPLACEMENT);
 		tripHeadsign = STARTS_WITH_QUOTE.matcher(tripHeadsign).replaceAll(StringUtils.EMPTY);
 		tripHeadsign = ENDS_WITH_QUOTE.matcher(tripHeadsign).replaceAll(StringUtils.EMPTY);
 		tripHeadsign = WCE_LINE_TO.matcher(tripHeadsign).replaceAll(StringUtils.EMPTY);
+		tripHeadsign = STATION.matcher(tripHeadsign).replaceAll(STATION_REPLACEMENT);
+		tripHeadsign = CleanUtils.removePoints(tripHeadsign);
+		tripHeadsign = CleanUtils.cleanNumbers(tripHeadsign);
+		tripHeadsign = CleanUtils.cleanStreetTypes(tripHeadsign);
 		return CleanUtils.cleanLabel(tripHeadsign);
+	}
+
+	@Override
+	public boolean mergeHeadsign(MTrip mTrip, MTrip mTripToMerge) {
+		List<String> headsignsValues = Arrays.asList(mTrip.getHeadsignValue(), mTripToMerge.getHeadsignValue());
+		if (mTrip.getRouteId() == 701l) {
+			if (Arrays.asList( //
+					"Haney Pl", //
+					"Maple Rdg East", //
+					"Mission City Sta" //
+			).containsAll(headsignsValues)) {
+				mTrip.setHeadsignString("Mission City Sta", mTrip.getHeadsignId());
+				return true;
+			}
+		}
+		System.out.printf("\nUnexpected tripts to merge %s & %s!\n", mTrip, mTripToMerge);
+		System.exit(-1);
+		return false;
 	}
 
 	private static final Pattern ENDS_WITH_BOUND = Pattern.compile("((east|west|north|south)bound$)", Pattern.CASE_INSENSITIVE);
@@ -168,9 +177,19 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
 	private static final Pattern TRAIN_BUS = Pattern.compile("(trainbus)", Pattern.CASE_INSENSITIVE);
 
+	private static final Pattern BOUND = Pattern.compile("((^|\\W){1}(eb|wb|sb|nb)(\\W|$){1})", Pattern.CASE_INSENSITIVE);
+	public static final String BOUND_REPLACEMENT = " ";
+
+	private static final Pattern AT_LIKE = Pattern.compile("((^|\\W){1}(fs|ns)(\\W|$){1})", Pattern.CASE_INSENSITIVE);
+
 	@Override
 	public String cleanStopName(String gStopName) {
 		gStopName = gStopName.toLowerCase(Locale.ENGLISH);
+		gStopName = BOUND.matcher(gStopName).replaceAll(BOUND_REPLACEMENT);
+		gStopName = CleanUtils.SAINT.matcher(gStopName).replaceAll(CleanUtils.SAINT_REPLACEMENT);
+		gStopName = AT_LIKE.matcher(gStopName).replaceAll(CleanUtils.CLEAN_AT_REPLACEMENT);
+		gStopName = CleanUtils.CLEAN_AT.matcher(gStopName).replaceAll(CleanUtils.CLEAN_AT_REPLACEMENT);
+		gStopName = CleanUtils.CLEAN_AND.matcher(gStopName).replaceAll(CleanUtils.CLEAN_AND_REPLACEMENT);
 		gStopName = STATION_STN.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = UNLOADING.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = WCE_LINE_TO.matcher(gStopName).replaceAll(StringUtils.EMPTY);
