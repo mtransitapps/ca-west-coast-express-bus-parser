@@ -154,13 +154,21 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 	@Override
 	public boolean mergeHeadsign(MTrip mTrip, MTrip mTripToMerge) {
 		List<String> headsignsValues = Arrays.asList(mTrip.getHeadsignValue(), mTripToMerge.getHeadsignValue());
-		if (mTrip.getRouteId() == 701l) {
+		if (mTrip.getRouteId() == 701L) {
 			if (Arrays.asList( //
-					"Haney Pl", //
+					"Haney Pl", // <>
+					"Maple Rdg E", //
+					"Maple Rdg E Via Samuel Robertson", //
 					"Maple Rdg East", //
 					"Mission City Sta" //
 			).containsAll(headsignsValues)) {
 				mTrip.setHeadsignString("Mission City Sta", mTrip.getHeadsignId());
+				return true;
+			} else if (Arrays.asList( //
+					"Haney Pl", // <>
+					"Coq Ctrl Sta" //
+			).containsAll(headsignsValues)) {
+				mTrip.setHeadsignString("Coq Ctrl Sta", mTrip.getHeadsignId());
 				return true;
 			}
 		}
