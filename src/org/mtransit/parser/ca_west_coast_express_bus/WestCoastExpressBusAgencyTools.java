@@ -136,7 +136,9 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public String cleanTripHeadsign(String tripHeadsign) {
-		tripHeadsign = tripHeadsign.toLowerCase(Locale.ENGLISH);
+		if (Utils.isUppercaseOnly(tripHeadsign, true, true)) {
+			tripHeadsign = tripHeadsign.toLowerCase(Locale.ENGLISH);
+		}
 		tripHeadsign = CleanUtils.cleanSlashes(tripHeadsign);
 		tripHeadsign = STARTS_WITH_ROUTE.matcher(tripHeadsign).replaceAll(StringUtils.EMPTY);
 		tripHeadsign = CleanUtils.CLEAN_AND.matcher(tripHeadsign).replaceAll(CleanUtils.CLEAN_AND_REPLACEMENT);
@@ -177,23 +179,24 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		return false;
 	}
 
-	private static final Pattern ENDS_WITH_BOUND = Pattern.compile("((east|west|north|south)bound$)", Pattern.CASE_INSENSITIVE);
-
-	private static final Pattern STATION_STN = Pattern.compile("(station|stn)", Pattern.CASE_INSENSITIVE);
+	private static final Pattern STATION_STN = Pattern.compile("(station|stn|sta)", Pattern.CASE_INSENSITIVE);
 
 	private static final Pattern UNLOADING = Pattern.compile("(unload(ing)?( only)?$)", Pattern.CASE_INSENSITIVE);
 
 	private static final Pattern TRAIN_BUS = Pattern.compile("(trainbus)", Pattern.CASE_INSENSITIVE);
 
-	private static final Pattern BOUND = Pattern.compile("((^|\\W){1}(eb|wb|sb|nb)(\\W|$){1})", Pattern.CASE_INSENSITIVE);
-	public static final String BOUND_REPLACEMENT = " ";
+	private static final Pattern BOUNDS = Pattern.compile("((^|\\W){1}(eb|eastbound|wb|westbound|sb|southbound|nb|northbound)(\\W|$){1})",
+			Pattern.CASE_INSENSITIVE);
+	public static final String BOUND_REPLACEMENT = "$2" + "$4";
 
 	private static final Pattern AT_LIKE = Pattern.compile("((^|\\W){1}(fs|ns)(\\W|$){1})", Pattern.CASE_INSENSITIVE);
 
 	@Override
 	public String cleanStopName(String gStopName) {
-		gStopName = gStopName.toLowerCase(Locale.ENGLISH);
-		gStopName = BOUND.matcher(gStopName).replaceAll(BOUND_REPLACEMENT);
+		if (Utils.isUppercaseOnly(gStopName, true, true)) {
+			gStopName = gStopName.toLowerCase(Locale.ENGLISH);
+		}
+		gStopName = BOUNDS.matcher(gStopName).replaceAll(BOUND_REPLACEMENT);
 		gStopName = CleanUtils.SAINT.matcher(gStopName).replaceAll(CleanUtils.SAINT_REPLACEMENT);
 		gStopName = AT_LIKE.matcher(gStopName).replaceAll(CleanUtils.CLEAN_AT_REPLACEMENT);
 		gStopName = CleanUtils.CLEAN_AT.matcher(gStopName).replaceAll(CleanUtils.CLEAN_AT_REPLACEMENT);
@@ -201,7 +204,6 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		gStopName = STATION_STN.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = UNLOADING.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = WCE_LINE_TO.matcher(gStopName).replaceAll(StringUtils.EMPTY);
-		gStopName = ENDS_WITH_BOUND.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = TRAIN_BUS.matcher(gStopName).replaceAll(StringUtils.EMPTY);
 		gStopName = CleanUtils.cleanStreetTypes(gStopName);
 		return CleanUtils.cleanLabel(gStopName);
@@ -212,6 +214,6 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		if (!StringUtils.isEmpty(gStop.getStopCode()) && Utils.isDigitsOnly(gStop.getStopCode())) {
 			return Integer.parseInt(gStop.getStopCode()); // using stop code as stop ID
 		}
-		return 1000000 + Integer.parseInt(gStop.getStopId());
+		return 1_000_000 + Integer.parseInt(gStop.getStopId());
 	}
 }
