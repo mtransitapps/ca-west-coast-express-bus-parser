@@ -25,6 +25,7 @@ import org.mtransit.parser.mt.data.MTrip;
 // http://mapexport.translink.bc.ca/current/google_transit.zip
 // http://ns.translink.ca/gtfs/notifications.zip
 // http://ns.translink.ca/gtfs/google_transit.zip
+// http://gtfs.translink.ca/static/latest
 // SERVICE REPLACED BY VANCOUVER TRANSLINK BUS 701
 public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
