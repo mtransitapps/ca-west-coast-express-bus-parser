@@ -17,9 +17,7 @@ import org.mtransit.parser.mt.data.MAgency;
 import org.mtransit.parser.mt.data.MRoute;
 import org.mtransit.parser.mt.data.MTrip;
 
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -137,6 +135,11 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 		);
 	}
 
+	@Override
+	public boolean directionFinderEnabled() {
+		return true;
+	}
+
 	private static final Pattern STARTS_WITH_QUOTE = Pattern.compile("(^\")", Pattern.CASE_INSENSITIVE);
 
 	private static final Pattern ENDS_WITH_QUOTE = Pattern.compile("(\"[;]?$)", Pattern.CASE_INSENSITIVE);
@@ -168,25 +171,6 @@ public class WestCoastExpressBusAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public boolean mergeHeadsign(@NotNull MTrip mTrip, @NotNull MTrip mTripToMerge) {
-		List<String> headsignsValues = Arrays.asList(mTrip.getHeadsignValue(), mTripToMerge.getHeadsignValue());
-		if (mTrip.getRouteId() == 701L) {
-			if (Arrays.asList( //
-					"Haney Pl", // <>
-					"Maple Rdg E", //
-					"Maple Rdg E Via Samuel Robertson", //
-					"Maple Rdg East", //
-					"Mission City Sta" //
-			).containsAll(headsignsValues)) {
-				mTrip.setHeadsignString("Mission City Sta", mTrip.getHeadsignId());
-				return true;
-			} else if (Arrays.asList( //
-					"Haney Pl", // <>
-					"Coq Ctrl Sta" //
-			).containsAll(headsignsValues)) {
-				mTrip.setHeadsignString("Coq Ctrl Sta", mTrip.getHeadsignId());
-				return true;
-			}
-		}
 		throw new MTLog.Fatal("Unexpected trips to merge %s & %s!", mTrip, mTripToMerge);
 	}
 
